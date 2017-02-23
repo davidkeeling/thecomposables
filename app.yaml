@@ -1,0 +1,40 @@
+application: the-composables
+version: 1
+runtime: go
+api_version: go1
+
+skip_files:
+- ^(.*/)?#.*#$
+- ^(.*/)?.*~$
+- ^(.*/)?.*\.py[co]$
+- ^(.*/)?.*/RCS/.*$
+- ^(.*/)?\..*$
+- node_modules
+
+handlers:
+
+- url: /view/(.*)
+  script: _go_app
+
+- url: /edit/(.*)
+  script: _go_app
+
+- url: /save/(.*)
+  script: _go_app
+
+- url: /delete/(.*)
+  script: _go_app
+
+- url: /
+  script: _go_app
+
+- url: /login
+  script: _go_app
+
+- url: /(.+)\.(.+)
+  static_files: static/\1.\2
+  upload: static/.*\..*
+
+- url: /tpl/(.+)\.(.+)
+  static_files: tpl/\1.\2
+  upload: tpl/.*\..*

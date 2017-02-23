@@ -1,0 +1,14 @@
+{
+  "name": "thecomposables",
+  "version": "1.0.0",
+  "description": "Wiki for the worldbuilding project The Composables",
+  "main": "index.js",
+  "scripts": {
+    "build-css": "node-sass styles/styles.scss static/styles.css"
+  },
+  "author": "David Keeling",
+  "license": "ISC",
+  "devDependencies": {
+    "node-sass": "^4.5.0"
+  }
+}

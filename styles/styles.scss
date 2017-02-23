@@ -1,0 +1,49 @@
+body * {
+  font-family: inherit;
+}
+body {
+  max-width: 810px;
+  margin: 0 auto;
+  padding: .5em;
+  line-height: 1.5;
+  font-size: 125%;
+  font-family: 'Noto Sans', sans-serif;
+}
+form textarea {
+  width: 100%;
+  height: 60vh;
+  font-size: 112.5%;
+  line-height: 1.5;
+}
+.editForm {
+  input[type="submit"] {
+    margin: 1em;
+    font-size: 150%;
+    cursor: pointer;
+  }
+}
+.topLink {
+  margin-top: 2em;
+  float: right;
+}
+h1 {
+  clear: right;
+}
+.right {
+  text-align: right;
+}
+.deleteForm {
+  input[type='submit'] {
+    display: none;
+    cursor: pointer;
+  }
+  input[name='delete']:checked + input[type='submit'] {
+    display: inline;
+  }
+}
+
+@media screen and (max-width: 500px) {
+  .topLink {
+    margin-top: 1em;
+  }
+}

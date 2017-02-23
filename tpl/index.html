@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link href="https://fonts.googleapis.com/css?family=Noto+Sans" rel="stylesheet">
+  <link href="/styles.css" rel="stylesheet">
+  <link href="/favicon.png" type="image/png" rel="icon" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Composables</title>
+</head>
+<body>
+  <h1>The Composables</h1>
+
+  {{ if .Introduction }} 
+  {{ .Introduction }} 
+  {{ end }}
+
+  <ul>
+  {{ range .Pages }}
+    <li>
+      <a href="/view/{{ .ID }}">{{ .Title }}</a>
+    </li>
+  {{ end }}
+  </ul>
+</body>
+</html>
