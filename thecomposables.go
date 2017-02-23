@@ -69,7 +69,8 @@ func viewHandler(c context.Context, w http.ResponseWriter, r *http.Request, titl
 }
 
 func editHandler(c context.Context, w http.ResponseWriter, r *http.Request, title string) {
-	if !user.Current(c).Admin {
+	currentUser := user.Current(c)
+	if currentUser == nil || !currentUser.Admin {
 		http.Error(w, "", http.StatusUnauthorized)
 		return
 	}
@@ -88,7 +89,8 @@ func editHandler(c context.Context, w http.ResponseWriter, r *http.Request, titl
 }
 
 func saveHandler(c context.Context, w http.ResponseWriter, r *http.Request, title string) {
-	if !user.Current(c).Admin {
+	currentUser := user.Current(c)
+	if currentUser == nil || !currentUser.Admin {
 		http.Error(w, "", http.StatusUnauthorized)
 		return
 	}
@@ -106,7 +108,8 @@ func saveHandler(c context.Context, w http.ResponseWriter, r *http.Request, titl
 }
 
 func deleteHandler(c context.Context, w http.ResponseWriter, r *http.Request, title string) {
-	if !user.Current(c).Admin {
+	currentUser := user.Current(c)
+	if currentUser == nil || !currentUser.Admin {
 		http.Error(w, "", http.StatusUnauthorized)
 		return
 	}
