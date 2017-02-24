@@ -1,6 +1,7 @@
 package thecomposables
 
 import (
+	"fmt"
 	"html/template"
 	"net/http"
 	"regexp"
@@ -17,49 +18,90 @@ import (
 	"google.golang.org/appengine/user"
 )
 
-// Page is a document in the wiki
-type Page struct {
+type page struct {
 	Title  string
 	Body   []byte
-	ID     string        `datastore:"-"`
-	Markup template.HTML `datastore:"-"`
+	ID     string
+	Markup template.HTML
 }
 
-// PageIndex implements alphabetical sort by Title for []Page
-type PageIndex []Page
+// Dashes in page IDs (slugs) are mapped to spaces in the title:
+func titleToID(title string) string { return strings.Replace(title, " ", "-", -1) }
+func idToTitle(id string) string    { return strings.Replace(id, "-", " ", -1) }
 
-func (a PageIndex) Len() int           { return len(a) }
-func (a PageIndex) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a PageIndex) Less(i, j int) bool { return a[i].Title < a[j].Title }
+// Load implements the PropertyLoadSaver interface for *page.
+// Body is parsed as Markdown, and Title is converted to ID.
+func (p *page) Load(props []datastore.Property) error {
+	for _, prop := range props {
+		switch prop.Name {
+		case "Title":
+			title, ok := prop.Value.(string)
+			if !ok {
+				return fmt.Errorf("Title value [%v] is not a string", prop.Value)
+			}
+			p.Title = title
+			p.ID = titleToID(title)
+
+		case "Body":
+			body, ok := prop.Value.([]byte)
+			if !ok {
+				return fmt.Errorf("Title value [%v] is not a []byte", prop.Value)
+			}
+			p.Body = body
+
+			//content is trusted because editing is locked to admins.
+			//github.com/microcosm-cc/bluemonday for more security.
+			p.Markup = template.HTML(blackfriday.MarkdownCommon(body))
+		}
+	}
+	return nil
+}
+
+// Save implements the PropertyLoadSaver interface for *page.
+// Only Title and Body are saved, ID and Markup are generated
+// in Load().
+func (p *page) Save() ([]datastore.Property, error) {
+	return []datastore.Property{
+		{Name: "Title", Value: p.Title},
+		{Name: "Body", Value: p.Body, NoIndex: true},
+	}, nil
+}
+
+// pageIndex implements alphabetical sort by Title for []*page
+type pageIndex []*page
+
+func (a pageIndex) Len() int      { return len(a) }
+func (a pageIndex) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a pageIndex) Less(i, j int) bool {
+	return strings.ToLower(a[i].Title) < strings.ToLower(a[j].Title)
+}
 
 // TemplateData is info needed to render a edit or view page
 type TemplateData struct {
-	Page *Page
+	Page *page
 	User *user.User
 }
 
-func (p *Page) save(c context.Context) error {
+func (p *page) save(c context.Context) error {
 	k := datastore.NewKey(c, "Page", p.Title, 0, nil)
 	_, err := datastore.Put(c, k, p)
 	return err
 }
 
-func loadPage(c context.Context, title string) (*Page, error) {
+func loadPage(c context.Context, title string) (*page, error) {
 	k := datastore.NewKey(c, "Page", title, 0, nil)
-	var p Page
+	var p page
 	err := datastore.Get(c, k, &p)
 	if err != nil {
 		return nil, err
 	}
-	p.Markup = template.HTML(blackfriday.MarkdownCommon(p.Body))
-	p.ID = strings.Replace(p.Title, " ", "-", -1)
 	return &p, nil
 }
 
 func viewHandler(c context.Context, w http.ResponseWriter, r *http.Request, title string) {
 	p, err := loadPage(c, title)
 	if err != nil {
-		http.Redirect(w, r, "/edit/"+strings.Replace(title, " ", "-", -1), http.StatusFound)
+		http.Redirect(w, r, "/edit/"+titleToID(title), http.StatusFound)
 		return
 	}
 	renderTemplate(w, "view", TemplateData{
@@ -76,9 +118,9 @@ func editHandler(c context.Context, w http.ResponseWriter, r *http.Request, titl
 	}
 	p, err := loadPage(c, title)
 	if err != nil {
-		p = &Page{
+		p = &page{
 			Title: title,
-			ID:    strings.Replace(title, " ", "-", -1),
+			ID:    titleToID(title),
 		}
 	}
 
@@ -95,7 +137,7 @@ func saveHandler(c context.Context, w http.ResponseWriter, r *http.Request, titl
 		return
 	}
 	body := r.FormValue("body")
-	p := &Page{
+	p := &page{
 		Title: title,
 		Body:  []byte(body),
 	}
@@ -104,7 +146,7 @@ func saveHandler(c context.Context, w http.ResponseWriter, r *http.Request, titl
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/view/"+strings.Replace(title, " ", "-", -1), http.StatusFound)
+	http.Redirect(w, r, "/view/"+titleToID(title), http.StatusFound)
 }
 
 func deleteHandler(c context.Context, w http.ResponseWriter, r *http.Request, title string) {
@@ -151,7 +193,7 @@ func makeHandler(fn func(context.Context, http.ResponseWriter, *http.Request, st
 			return
 		}
 		c := appengine.NewContext(r)
-		title := strings.Replace(m[2], "-", " ", -1)
+		title := idToTitle(m[2])
 		fn(c, w, r, title)
 	}
 }
@@ -159,10 +201,10 @@ func makeHandler(fn func(context.Context, http.ResponseWriter, *http.Request, st
 func home(w http.ResponseWriter, r *http.Request) {
 	c := appengine.NewContext(r)
 	t := datastore.NewQuery("Page").Run(c)
-	pages := PageIndex{}
+	pages := pageIndex{}
 	var homepagecontent template.HTML
 	for {
-		var p Page
+		var p page
 		_, err := t.Next(&p)
 		if err == datastore.Done {
 			break
@@ -174,13 +216,13 @@ func home(w http.ResponseWriter, r *http.Request) {
 		if p.Title == "Introduction" {
 			homepagecontent = template.HTML(blackfriday.MarkdownCommon(p.Body))
 		}
-		p.ID = strings.Replace(p.Title, " ", "-", -1)
-		pages = append(pages, p)
+		p.ID = titleToID(p.Title)
+		pages = append(pages, &p)
 	}
 	sort.Sort(pages)
 
 	err := templates.ExecuteTemplate(w, "index.html", struct {
-		Pages        PageIndex
+		Pages        pageIndex
 		Introduction template.HTML
 	}{
 		pages,
