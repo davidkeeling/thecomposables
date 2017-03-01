@@ -1,0 +1,21 @@
+
+//border purple
+#4B3975
+
+//border blue
+#4C00FF
+
+//mouth
+#24007A
+
+//eye
+#175200
+
+//dark internal
+#9C8FBA
+
+//light internal
+#BEAFE3
+
+//internal detail
+#795CBD

@@ -16,6 +16,9 @@ handlers:
 - url: /view/(.*)
   script: _go_app
 
+- url: /history/(.*)
+  script: _go_app
+
 - url: /edit/(.*)
   script: _go_app
 

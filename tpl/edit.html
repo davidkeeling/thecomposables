@@ -12,13 +12,18 @@
 
   <div class="topLink">[<a href="/">home</a>]</div>
 
-  <h1>Editing {{ .Page.Title }}</h1>
+  {{ if .Page.DoesNotExist }}
+  <h1>Creating {{ .Page.Title }}</h1>
 
+  {{ else }}
+  <h1>Editing {{ .Page.Title }}</h1>
   <form class="deleteForm" action="/delete/{{ .Page.ID }}" method="POST">
     <span>delete</span>
     <input type="checkbox" name="delete" required />
     <input type="submit" value="are you sure?" />
   </form>
+
+  {{ end }}
 
   <form class="editForm" action="/save/{{ .Page.ID }}" method="POST">
     <textarea name="body" rows="20" cols="80">{{ printf "%s" .Page.Body }}</textarea>

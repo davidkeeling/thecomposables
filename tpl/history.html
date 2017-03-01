@@ -18,5 +18,11 @@
   </div>
   {{ end }}{{ end }}
 
+  {{ .Page.Markup }}
+
+  <script>
+    var versions = {{ .Page.VersionMarkup }};
+  </script>
+
 </body>
 </html>

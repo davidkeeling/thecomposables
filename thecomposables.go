@@ -1,15 +1,17 @@
 package thecomposables
 
 import (
-	"fmt"
 	"html/template"
 	"net/http"
 	"regexp"
 	"sort"
+	"time"
 
 	"golang.org/x/net/context"
 
 	"strings"
+
+	"fmt"
 
 	"github.com/russross/blackfriday"
 	"google.golang.org/appengine"
@@ -18,150 +20,126 @@ import (
 	"google.golang.org/appengine/user"
 )
 
-type page struct {
-	Title  string
-	Body   []byte
-	ID     string
-	Markup template.HTML
-}
+var templates = template.Must(template.ParseFiles("tpl/edit.html", "tpl/view.html", "tpl/history.html", "tpl/index.html"))
+var validPath = regexp.MustCompile("^/(edit|save|view|delete|history)/([a-zA-Z0-9',-]+)$")
 
 // Dashes in page IDs (slugs) are mapped to spaces in the title:
 func titleToID(title string) string { return strings.Replace(title, " ", "-", -1) }
 func idToTitle(id string) string    { return strings.Replace(id, "-", " ", -1) }
 
-// Load implements the PropertyLoadSaver interface for *page.
-// Body is parsed as Markdown, and Title is converted to ID.
-func (p *page) Load(props []datastore.Property) error {
-	for _, prop := range props {
-		switch prop.Name {
-		case "Title":
-			title, ok := prop.Value.(string)
-			if !ok {
-				return fmt.Errorf("Title value [%v] is not a string", prop.Value)
-			}
-			p.Title = title
-			p.ID = titleToID(title)
-
-		case "Body":
-			body, ok := prop.Value.([]byte)
-			if !ok {
-				return fmt.Errorf("Title value [%v] is not a []byte", prop.Value)
-			}
-			p.Body = body
-
-			//content is trusted because editing is locked to admins.
-			//github.com/microcosm-cc/bluemonday for more security.
-			p.Markup = template.HTML(blackfriday.MarkdownCommon(body))
-		}
-	}
-	return nil
-}
-
-// Save implements the PropertyLoadSaver interface for *page.
-// Only Title and Body are saved, ID and Markup are generated
-// in Load().
-func (p *page) Save() ([]datastore.Property, error) {
-	return []datastore.Property{
-		{Name: "Title", Value: p.Title},
-		{Name: "Body", Value: p.Body, NoIndex: true},
-	}, nil
-}
-
-// pageIndex implements alphabetical sort by Title for []*page
-type pageIndex []*page
-
-func (a pageIndex) Len() int      { return len(a) }
-func (a pageIndex) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-func (a pageIndex) Less(i, j int) bool {
-	return strings.ToLower(a[i].Title) < strings.ToLower(a[j].Title)
-}
-
-// TemplateData is info needed to render a edit or view page
-type TemplateData struct {
+type templateData struct {
 	Page *page
 	User *user.User
 }
 
-func (p *page) save(c context.Context) error {
-	k := datastore.NewKey(c, "Page", p.Title, 0, nil)
-	_, err := datastore.Put(c, k, p)
-	return err
+type request struct {
+	c context.Context
+	w http.ResponseWriter
+	r *http.Request
 }
 
-func loadPage(c context.Context, title string) (*page, error) {
-	k := datastore.NewKey(c, "Page", title, 0, nil)
-	var p page
-	err := datastore.Get(c, k, &p)
-	if err != nil {
-		return nil, err
-	}
-	return &p, nil
-}
-
-func viewHandler(c context.Context, w http.ResponseWriter, r *http.Request, title string) {
-	p, err := loadPage(c, title)
-	if err != nil {
-		http.Redirect(w, r, "/edit/"+titleToID(title), http.StatusFound)
-		return
-	}
-	renderTemplate(w, "view", TemplateData{
-		Page: p,
-		User: user.Current(c),
-	})
-}
-
-func editHandler(c context.Context, w http.ResponseWriter, r *http.Request, title string) {
-	currentUser := user.Current(c)
-	if currentUser == nil || !currentUser.Admin {
-		http.Error(w, "", http.StatusUnauthorized)
-		return
-	}
-	p, err := loadPage(c, title)
-	if err != nil {
-		p = &page{
-			Title: title,
-			ID:    titleToID(title),
+func pageHandler(fn func(*request, *page)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		m := validPath.FindStringSubmatch(r.URL.Path)
+		if m == nil {
+			http.NotFound(w, r)
+			return
 		}
+		c := appengine.NewContext(r)
+		title := m[2]
+		p, err := loadPage(c, idToTitle(title))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		p.ID = title
+		fn(&request{c, w, r}, p)
 	}
+}
 
-	renderTemplate(w, "edit", TemplateData{
+func (r *request) handleError(err error) {
+	http.Error(r.w, err.Error(), http.StatusInternalServerError)
+}
+
+func (r *request) handleUnauthorized() {
+	http.Error(r.w, "", http.StatusUnauthorized)
+}
+
+func render(r *request, p *page, mode renderMode) error {
+	return templates.ExecuteTemplate(r.w, string(mode)+".html", templateData{
 		Page: p,
-		User: user.Current(c),
+		User: user.Current(r.c),
 	})
 }
 
-func saveHandler(c context.Context, w http.ResponseWriter, r *http.Request, title string) {
-	currentUser := user.Current(c)
-	if currentUser == nil || !currentUser.Admin {
-		http.Error(w, "", http.StatusUnauthorized)
-		return
-	}
-	body := r.FormValue("body")
-	p := &page{
-		Title: title,
-		Body:  []byte(body),
-	}
-	err := p.save(c)
+func viewHandler(r *request, p *page) {
+	p.Markup = template.HTML(blackfriday.MarkdownCommon(p.Body))
+	err := render(r, p, view)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		r.handleError(err)
 	}
-	http.Redirect(w, r, "/view/"+titleToID(title), http.StatusFound)
 }
 
-func deleteHandler(c context.Context, w http.ResponseWriter, r *http.Request, title string) {
-	currentUser := user.Current(c)
-	if currentUser == nil || !currentUser.Admin {
-		http.Error(w, "", http.StatusUnauthorized)
-		return
+func historyHandler(r *request, p *page) {
+	for _, v := range p.Versions {
+		p.VersionMarkup = append(p.VersionMarkup, template.HTML(blackfriday.MarkdownCommon(v.Body)))
 	}
-	k := datastore.NewKey(c, "Page", title, 0, nil)
-	err := datastore.Delete(c, k)
+	p.Markup = template.HTML(blackfriday.MarkdownCommon(p.Body))
+	err := render(r, p, history)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		r.handleError(err)
+	}
+}
+
+func editHandler(r *request, p *page) {
+	currentUser := user.Current(r.c)
+	if currentUser == nil || !currentUser.Admin {
+		r.handleUnauthorized()
 		return
 	}
-	http.Redirect(w, r, "/", http.StatusFound)
+
+	err := render(r, p, edit)
+	if err != nil {
+		r.handleError(err)
+	}
+}
+
+func saveHandler(r *request, p *page) {
+	currentUser := user.Current(r.c)
+	if currentUser == nil || !currentUser.Admin {
+		r.handleUnauthorized()
+		return
+	}
+	p.Versions = append([]version{{p.Body, time.Now()}}, p.Versions...)
+	if len(p.Versions) > 10 {
+		p.Versions = p.Versions[0:10]
+	}
+	p.Body = []byte(r.r.FormValue("body"))
+	err := p.save(r.c)
+	if err != nil {
+		r.handleError(err)
+		return
+	}
+	http.Redirect(r.w, r.r, "/view/"+titleToID(p.Title), http.StatusFound)
+}
+
+func deleteHandler(r *request, p *page) {
+	if p.DoesNotExist {
+		r.handleError(fmt.Errorf("%s does not exist; cannot delete", p.Title))
+		return
+	}
+	currentUser := user.Current(r.c)
+	if currentUser == nil || !currentUser.Admin {
+		r.handleUnauthorized()
+		return
+	}
+	k := datastore.NewKey(r.c, "Page", p.Title, 0, nil)
+	err := datastore.Delete(r.c, k)
+	if err != nil {
+		r.handleError(err)
+		return
+	}
+	http.Redirect(r.w, r.r, "/", http.StatusFound)
 }
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
@@ -172,30 +150,6 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, loginURL, http.StatusFound)
-}
-
-var templates = template.Must(template.ParseFiles("tpl/edit.html", "tpl/view.html", "tpl/index.html"))
-
-func renderTemplate(w http.ResponseWriter, tmpl string, data TemplateData) {
-	err := templates.ExecuteTemplate(w, tmpl+".html", data)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-
-var validPath = regexp.MustCompile("^/(edit|save|view|delete)/([a-zA-Z0-9',-]+)$")
-
-func makeHandler(fn func(context.Context, http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		m := validPath.FindStringSubmatch(r.URL.Path)
-		if m == nil {
-			http.NotFound(w, r)
-			return
-		}
-		c := appengine.NewContext(r)
-		title := idToTitle(m[2])
-		fn(c, w, r, title)
-	}
 }
 
 func home(w http.ResponseWriter, r *http.Request) {
@@ -234,10 +188,11 @@ func home(w http.ResponseWriter, r *http.Request) {
 }
 
 func init() {
-	http.HandleFunc("/view/", makeHandler(viewHandler))
-	http.HandleFunc("/edit/", makeHandler(editHandler))
-	http.HandleFunc("/save/", makeHandler(saveHandler))
-	http.HandleFunc("/delete/", makeHandler(deleteHandler))
+	http.HandleFunc("/view/", pageHandler(viewHandler))
+	http.HandleFunc("/edit/", pageHandler(editHandler))
+	http.HandleFunc("/history/", pageHandler(historyHandler))
+	http.HandleFunc("/save/", pageHandler(saveHandler))
+	http.HandleFunc("/delete/", pageHandler(deleteHandler))
 	http.HandleFunc("/login", loginHandler)
 	http.HandleFunc("/", home)
 }
