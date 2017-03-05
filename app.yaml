@@ -13,25 +13,13 @@ skip_files:
 
 handlers:
 
-- url: /view/(.*)
+- url: /(view|history|edit|save|delete)/(.*)
   script: _go_app
 
-- url: /history/(.*)
-  script: _go_app
-
-- url: /edit/(.*)
-  script: _go_app
-
-- url: /save/(.*)
-  script: _go_app
-
-- url: /delete/(.*)
+- url: /user/(login|logout)
   script: _go_app
 
 - url: /
-  script: _go_app
-
-- url: /login
   script: _go_app
 
 - url: /(.+)\.(.+)

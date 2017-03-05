@@ -11,52 +11,47 @@ import (
 	"google.golang.org/appengine/datastore"
 )
 
-type renderMode string
-
-const (
-	edit    renderMode = "edit"
-	view               = "view"
-	history            = "history"
-)
-
-func titleToKey(c context.Context, title string) *datastore.Key {
-	return datastore.NewKey(c, "Page", title, 0, nil)
-}
-
 type page struct {
-	ID            string `datastore:"-"`
-	Title         string
-	Body          []byte        `datastore:",noindex"`
-	Markup        template.HTML `datastore:"-"`
-	Versions      []version
-	VersionMarkup []template.HTML `datastore:"-"`
-	DoesNotExist  bool            `datastore:"-"`
+	Key          *datastore.Key `datastore:"-"`
+	ID           string         `datastore:"-"`
+	Title        string
+	Body         []byte        `datastore:",noindex"`
+	Markup       template.HTML `datastore:"-"`
+	Versions     []version
+	DoesNotExist bool `datastore:"-"`
 }
 
 type version struct {
-	Body []byte `datastore:",noindex"`
-	Date time.Time
-}
-
-func (p *page) save(c context.Context) error {
-	_, err := datastore.Put(c, titleToKey(c, p.Title), p)
-	return err
+	Body   []byte        `datastore:",noindex"`
+	Markup template.HTML `datastore:"-"`
+	Date   time.Time
 }
 
 func loadPage(c context.Context, title string) (*page, error) {
 	var p page
-	err := datastore.Get(c, titleToKey(c, title), &p)
+	k := titleToKey(c, title)
+	err := datastore.Get(c, k, &p)
 	if err == datastore.ErrNoSuchEntity {
 		p = page{
 			Title:        title,
-			ID:           titleToID(title),
 			DoesNotExist: true,
 		}
 	} else if err != nil {
 		return nil, err
 	}
+	p.ID = titleToID(p.Title)
+	p.Key = k
 
 	return &p, nil
+}
+
+func (p *page) save(c context.Context) error {
+	_, err := datastore.Put(c, p.Key, p)
+	return err
+}
+
+func titleToKey(c context.Context, title string) *datastore.Key {
+	return datastore.NewKey(c, "Page", title, 0, nil)
 }
 
 // pageIndex implements alphabetical sort by Title for []*page
