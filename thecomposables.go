@@ -13,10 +13,13 @@ import (
 
 	"fmt"
 
+	"encoding/json"
+
 	"github.com/russross/blackfriday"
 	"google.golang.org/appengine"
 	"google.golang.org/appengine/datastore"
 	"google.golang.org/appengine/log"
+	"google.golang.org/appengine/memcache"
 	"google.golang.org/appengine/user"
 )
 
@@ -29,9 +32,13 @@ func titleToID(title string) string { return strings.Replace(title, " ", "-", -1
 func idToTitle(id string) string    { return strings.Replace(id, "-", " ", -1) }
 
 type templateData struct {
-	Page *page
-	User *user.User
-	Mode renderMode
+	Page     *page
+	User     *user.User
+	Mode     renderMode
+	Pages    []*page
+	Redirect string
+	IsAdmin  bool
+	IsDev    bool
 }
 
 // request is a container for session/request data
@@ -82,10 +89,19 @@ func (r *request) handleError(err error) {
 }
 
 func render(r *request, p *page, mode renderMode) error {
+	pages, err := getPages(r.c)
+	if err != nil {
+		return err
+	}
+
 	return templates.ExecuteTemplate(r.w, string(mode)+".html", templateData{
-		Page: p,
-		User: r.u,
-		Mode: mode,
+		Page:     p,
+		User:     r.u,
+		Mode:     mode,
+		Redirect: fmt.Sprintf("/%s/%s", mode, p.ID),
+		Pages:    pages,
+		IsAdmin:  r.u != nil && r.u.Admin,
+		IsDev:    appengine.IsDevAppServer(),
 	})
 }
 
@@ -126,6 +142,9 @@ func saveHandler(r *request, p *page) {
 		r.handleError(err)
 		return
 	}
+	if p.DoesNotExist {
+		clearPageCache(r.c)
+	}
 	http.Redirect(r.w, r.r, "/view/"+p.ID, http.StatusFound)
 }
 
@@ -139,6 +158,7 @@ func deleteHandler(r *request, p *page) {
 		r.handleError(err)
 		return
 	}
+	clearPageCache(r.c)
 	http.Redirect(r.w, r.r, "/", http.StatusFound)
 }
 
@@ -170,11 +190,76 @@ func userHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, dest, http.StatusFound)
 }
 
+func search(w http.ResponseWriter, r *http.Request) {
+	c := appengine.NewContext(r)
+	u := user.Current(c)
+	pageName := r.FormValue("pageName")
+	page, err := loadPage(c, pageName)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if page.DoesNotExist {
+		if u == nil || !u.Admin {
+			http.Error(w, fmt.Sprintf("No such page (%s)", pageName), http.StatusNotFound)
+			return
+		}
+		http.Redirect(w, r, fmt.Sprintf("/edit/%s", page.ID), http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, fmt.Sprintf("/view/%s", page.ID), http.StatusFound)
+}
+
 func home(w http.ResponseWriter, r *http.Request) {
 	c := appengine.NewContext(r)
-	t := datastore.NewQuery("Page").Run(c)
-	pages := pageIndex{}
+
+	pages, err := getPages(c)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	var homepagecontent template.HTML
+	for _, p := range pages {
+		if p.Title == "Introduction" {
+			homepagecontent = template.HTML(blackfriday.MarkdownCommon(p.Body))
+		}
+	}
+
+	u := user.Current(c)
+	err = templates.ExecuteTemplate(w, "index.html", struct {
+		Pages        pageIndex
+		Introduction template.HTML
+		User         *user.User
+		IsAdmin      bool
+		Redirect     string
+	}{
+		pages,
+		homepagecontent,
+		u,
+		u != nil && u.Admin,
+		"/",
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func getPages(c context.Context) (pageIndex, error) {
+	pages := pageIndex{}
+	val, err := memcache.Get(c, "pages")
+	if err == nil {
+		jErr := json.Unmarshal(val.Value, &pages)
+		if jErr == nil {
+			return pages, nil
+		}
+		log.Errorf(c, "Unmarshalling pages from memcache: %s", jErr)
+	}
+	if err != memcache.ErrCacheMiss {
+		log.Errorf(c, "Fetching pages from memcache: %s", err)
+	}
+
+	t := datastore.NewQuery("Page").Ancestor(pageParentKey(c)).Run(c)
 	for {
 		var p page
 		_, err := t.Next(&p)
@@ -185,25 +270,30 @@ func home(w http.ResponseWriter, r *http.Request) {
 			log.Errorf(c, "Loading page: %s", err)
 			break
 		}
-		if p.Title == "Introduction" {
-			homepagecontent = template.HTML(blackfriday.MarkdownCommon(p.Body))
-		}
 		p.ID = titleToID(p.Title)
 		pages = append(pages, &p)
 	}
 	sort.Sort(pages)
 
-	err := templates.ExecuteTemplate(w, "index.html", struct {
-		Pages        pageIndex
-		Introduction template.HTML
-		User         *user.User
-	}{
-		pages,
-		homepagecontent,
-		user.Current(c),
-	})
+	pageJSON, err := json.Marshal(pages)
+	if err == nil {
+		mErr := memcache.Set(c, &memcache.Item{
+			Key:   "pages",
+			Value: pageJSON,
+		})
+		if mErr != nil {
+			log.Errorf(c, "Setting pages in memcache: %s", mErr)
+		}
+	}
+
+	return pages, nil
+}
+
+func clearPageCache(c context.Context) {
+	log.Infof(c, "Clearing page cache")
+	err := memcache.Delete(c, "pages")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Errorf(c, "Resetting pages memcache: %s", err)
 	}
 }
 
@@ -214,5 +304,6 @@ func init() {
 	http.HandleFunc("/save/", pageHandler(saveHandler, true))
 	http.HandleFunc("/delete/", pageHandler(deleteHandler, true))
 	http.HandleFunc("/user/", userHandler)
+	http.HandleFunc("/search", search)
 	http.HandleFunc("/", home)
 }

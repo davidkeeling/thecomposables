@@ -50,8 +50,12 @@ func (p *page) save(c context.Context) error {
 	return err
 }
 
+func pageParentKey(c context.Context) *datastore.Key {
+	return datastore.NewKey(c, "Topics", "default", 0, nil)
+}
+
 func titleToKey(c context.Context, title string) *datastore.Key {
-	return datastore.NewKey(c, "Page", title, 0, nil)
+	return datastore.NewKey(c, "Page", title, 0, pageParentKey(c))
 }
 
 // pageIndex implements alphabetical sort by Title for []*page

@@ -31,6 +31,7 @@ form textarea {
 .nav {
   margin-top: 2em;
   float: right;
+  text-align: right;
 }
 
 .controls {
@@ -45,6 +46,11 @@ form textarea {
 
 .title {
   clear: right;
+  text-align: center;
+  margin: 1em 0;
+  h1 {
+    margin: 0;
+  }
 }
 
 .deleteForm {
@@ -110,17 +116,26 @@ form textarea {
 
 .topics {
   margin-top: 5em;
-  text-align: center;
+
+  h2 {
+    text-align: center;
+  }
 
   ul {
-    margin: 0 -1em;
-    padding: 0;
-    line-height: 2em;
     list-style: none;
-
-    > li {
-      display: inline-block;
-      margin: 0 1em;
-    }
   }
+}
+
+.searchForm {
+  text-align: center;
+
+  .error {
+    display: block;
+    visibility: hidden;
+    color: red;
+  }
+
+  form.noSuchPage .error {
+    visibility: visible;
+  } 
 }

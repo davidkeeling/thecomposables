@@ -22,6 +22,9 @@ handlers:
 - url: /
   script: _go_app
 
+- url: /search
+  script: _go_app
+
 - url: /(.+)\.(.+)
   static_files: static/\1.\2
   upload: static/.*\..*

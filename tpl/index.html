@@ -1,21 +1,15 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <link href="https://fonts.googleapis.com/css?family=Noto+Sans" rel="stylesheet">
-  <link href="/styles.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css?family=Noto+Sans" rel="stylesheet" />
+  <link rel="stylesheet" href="awesomplete.css" />
+  <link href="/styles.css" rel="stylesheet" />
   <link href="/favicon.png" type="image/png" rel="icon" />
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>The Composables</title>
 </head>
 <body>
-  <div class="nav">
-    {{ if .User }}
-    <span class="link"><a title="Logged in as {{ .User.Email }}" href="/user/logout?redirect=%2f">logout</a></span>
-    {{ else}}
-    <span class="link"><a href="/user/login?redirect=%2f">login</a></span>
-    {{ end }}
-    <span class="link">home</span>
-  </div>
+  {{ template "nav" . }}
 
   <h1 class="title">The Composables</h1>
 
@@ -25,6 +19,7 @@
   </div>
   {{ end }}
 
+  {{ if .Pages }}
   <div class="topics">
 
     <h2>Topics</h2>
@@ -37,5 +32,12 @@
     {{ end }}
     </ul>
   </div>
+    {{ end }}
+
+  <script>
+    var isAdmin = {{ .IsAdmin }};
+  </script>
+  <script src="/search.js"></script>
+  <script src="/awesomplete.js" async></script>
 </body>
 </html>

@@ -21,7 +21,8 @@ form textarea {
 
 .nav {
   margin-top: 2em;
-  float: right; }
+  float: right;
+  text-align: right; }
 
 .controls {
   float: left; }
@@ -32,7 +33,11 @@ form textarea {
   margin: 0 .5em; }
 
 .title {
-  clear: right; }
+  clear: right;
+  text-align: center;
+  margin: 1em 0; }
+  .title h1 {
+    margin: 0; }
 
 .deleteForm {
   margin: .2em 0;
@@ -71,13 +76,17 @@ form textarea {
     font-size: 1.125em; } }
 
 .topics {
-  margin-top: 5em;
-  text-align: center; }
+  margin-top: 5em; }
+  .topics h2 {
+    text-align: center; }
   .topics ul {
-    margin: 0 -1em;
-    padding: 0;
-    line-height: 2em;
     list-style: none; }
-    .topics ul > li {
-      display: inline-block;
-      margin: 0 1em; }
+
+.searchForm {
+  text-align: center; }
+  .searchForm .error {
+    display: block;
+    visibility: hidden;
+    color: red; }
+  .searchForm form.noSuchPage .error {
+    visibility: visible; }

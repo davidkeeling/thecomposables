@@ -11,11 +11,28 @@
 {{ define "nav" }}
 <div class="nav">
   {{ if .User }}
-  <span class="link"><a title="Logged in as {{ .User.Email }}" href="/user/logout?redirect={{ printf "/view/%s" .Page.ID }}">logout</a></span>
+  <span class="link"><a title="Logged in as {{ .User.Email }}" href="/user/logout?redirect={{ .Redirect }}">logout</a></span>
   {{ else }}
-  <span class="link"><a href="/user/login?redirect={{ printf "/view/%s" .Page.ID }}">login</a></span>
+  <span class="link"><a href="/user/login?redirect={{ .Redirect }}">login</a></span>
   {{ end }}
   <span class="link"><a href="/">home</a></span>
+
+  <div class="searchForm">
+    <form id="searchForm" action="/search">
+      <input tabindex="3" type="text" name="pageName" class="awesomplete" list="existingPages" id="pageNameInput" 
+        placeholder="{{ if .IsAdmin }}Search or create{{ else }}Search{{ end }}" />
+      <input tabindex="4" type="submit" value="submit" />
+
+      <label class="error">No such page</label>
+
+      <datalist id="existingPages">      
+      {{ range .Pages }}
+        <option>{{ .Title }}</option>
+      {{ end }}
+      </datalist>
+    </form>
+  </div>
+
 </div>
 {{ end }}
 

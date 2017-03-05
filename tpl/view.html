@@ -4,7 +4,13 @@
 <body>
   {{ template "nav" . }}
 
-  <h1 class="title">{{ .Page.Title }}</h1>
+  <div class="title">
+    <h1>{{ .Page.Title }}</h1>
+  </div>
+
+  {{ if .Page.DoesNotExist }}
+  <em class="annotation">(No such page)</em>
+  {{ end }}
 
   <div class="markupContainer">
     {{ .Page.Markup }}

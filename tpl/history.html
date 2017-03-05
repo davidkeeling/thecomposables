@@ -4,7 +4,14 @@
 <body>
   {{ template "nav" . }}
 
-  <h1 class="title">{{ .Page.Title }}</h1>
+  <div class="title">
+    <h1>{{ .Page.Title }}</h1>
+    <em class="annotation">history</em>
+  </div>
+
+  {{ if .Page.DoesNotExist }}
+  <em class="annotation">(No such page)</em>
+  {{ else }}
 
   {{ if .Page.Versions }}
   <select id="versionSelector">
@@ -16,10 +23,13 @@
   {{ else }}
   <em class="annotation">(No previous versions)</em>
   {{ end }}
+  
+  {{ end }}
 
   <div class="markupContainer" id="contentContainer">
     {{ .Page.Markup }}
   </div>
+
   
   {{ template "controls" . }}
 
