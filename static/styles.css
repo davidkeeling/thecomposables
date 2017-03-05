@@ -1,42 +1,83 @@
-body * {
-  font-family: inherit; }
-
 body {
   max-width: 810px;
-  margin: 0 auto;
+  margin: 0 auto 10em;
   padding: .5em;
   line-height: 1.5;
   font-size: 125%;
   font-family: 'Noto Sans', sans-serif; }
+  body * {
+    font-family: inherit; }
 
 form textarea {
+  box-sizing: border-box;
   width: 100%;
   height: 60vh;
   font-size: 112.5%;
   line-height: 1.5; }
 
-.editForm input[type="submit"] {
-  margin: 1em;
+.editForm input[type='submit'] {
   font-size: 150%;
   cursor: pointer; }
 
-.topLink {
+.nav {
   margin-top: 2em;
   float: right; }
 
-h1 {
+.controls {
+  float: left; }
+
+.link {
+  font-family: 'Source Code Pro', monospace;
+  font-size: .75em;
+  margin: 0 .5em; }
+
+.title {
   clear: right; }
+
+.deleteForm {
+  margin: .2em 0;
+  height: 2em;
+  line-height: 2em;
+  font-family: 'Source Code Pro', monospace;
+  font-size: .5em; }
+  .deleteForm > * {
+    vertical-align: middle; }
+  .deleteForm input[type='submit'] {
+    display: none;
+    cursor: pointer;
+    font-size: inherit; }
+  .deleteForm input[type='checkbox'] {
+    width: 1em; }
+  .deleteForm input[name='delete']:checked + input[type='submit'] {
+    display: inline; }
+
+.markupContainer {
+  min-height: 10em; }
+
+.annotation {
+  font-size: 75%; }
 
 .right {
   text-align: right; }
 
-.deleteForm input[type='submit'] {
-  display: none;
-  cursor: pointer; }
-
-.deleteForm input[name='delete']:checked + input[type='submit'] {
-  display: inline; }
-
 @media screen and (max-width: 500px) {
   .topLink {
-    margin-top: 1em; } }
+    margin-top: 1em; }
+  h1 {
+    font-size: 1.5em; }
+  h2 {
+    font-size: 1.25em; }
+  h3 {
+    font-size: 1.125em; } }
+
+.topics {
+  margin-top: 5em;
+  text-align: center; }
+  .topics ul {
+    margin: 0 -1em;
+    padding: 0;
+    line-height: 2em;
+    list-style: none; }
+    .topics ul > li {
+      display: inline-block;
+      margin: 0 1em; }

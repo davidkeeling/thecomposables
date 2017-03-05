@@ -8,18 +8,34 @@
   <title>The Composables</title>
 </head>
 <body>
-  <h1>The Composables</h1>
+  <div class="nav">
+    {{ if .User }}
+    <span class="link"><a title="Logged in as {{ .User.Email }}" href="/user/logout?redirect=%2f">logout</a></span>
+    {{ else}}
+    <span class="link"><a href="/user/login?redirect=%2f">login</a></span>
+    {{ end }}
+    <span class="link">home</span>
+  </div>
+
+  <h1 class="title">The Composables</h1>
 
   {{ if .Introduction }} 
-  {{ .Introduction }} 
+  <div class="markupContainer">
+    {{ .Introduction }} 
+  </div>
   {{ end }}
 
-  <ul>
-  {{ range .Pages }}
-    <li>
-      <a href="/view/{{ .ID }}">{{ .Title }}</a>
-    </li>
-  {{ end }}
-  </ul>
+  <div class="topics">
+
+    <h2>Topics</h2>
+
+    <ul>
+    {{ range .Pages }}
+      <li>
+        <a href="/view/{{ .ID }}">{{ .Title }}</a>
+      </li>
+    {{ end }}
+    </ul>
+  </div>
 </body>
 </html>

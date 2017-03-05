@@ -1,28 +1,33 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <link href="https://fonts.googleapis.com/css?family=Noto+Sans" rel="stylesheet">
-  <link href="/styles.css" rel="stylesheet">
-  <link href="/favicon.png" type="image/png" rel="icon" />
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ .Page.Title }}</title>
-</head>
+{{ template "head" . }}
 <body>
-  <div class="topLink">[<a href="/">home</a>]</div>
+  {{ template "nav" . }}
 
-  <h1>{{ .Page.Title }}</h1>
-  
-  {{ if .User }}{{ if .User.Admin }}
-  <div class="controls">
-    <span>[<a href="/edit/{{ .Page.ID }}">edit</a>]</span>
+  <h1 class="title">{{ .Page.Title }}</h1>
+
+  {{ if .Page.Versions }}
+  <select id="versionSelector">
+    <option value="">Current</option>
+    {{ range $i, $version := .Page.Versions }}
+    <option value="{{ $i }}">{{ $version.Date.Format "2006 Jan 02 3:04 PM" }}</option>
+    {{ end }}
+  </select>
+  {{ else }}
+  <em class="annotation">(No previous versions)</em>
+  {{ end }}
+
+  <div class="markupContainer" id="contentContainer">
+    {{ .Page.Markup }}
   </div>
-  {{ end }}{{ end }}
-
-  {{ .Page.Markup }}
+  
+  {{ template "controls" . }}
 
   <script>
-    var versions = {{ .Page.VersionMarkup }};
+    var currentVersion = {{ .Page.Markup }};
+    var versions = {{ .Page.Versions }};
   </script>
+  <script src="/history.js"></script>
 
 </body>
 </html>

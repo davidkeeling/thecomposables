@@ -1,0 +1,30 @@
+{{ define "head" }}
+<head>
+  <link href="https://fonts.googleapis.com/css?family=Noto+Sans|Source+Code+Pro" rel="stylesheet">
+  <link href="/styles.css" rel="stylesheet">
+  <link href="/favicon.png" type="image/png" rel="icon" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ .Page.Title }}{{ if or (eq .Mode "edit") (eq .Mode "history") }} - {{.Mode}} {{ end }}</title>
+</head>
+{{ end }}
+
+{{ define "nav" }}
+<div class="nav">
+  {{ if .User }}
+  <span class="link"><a title="Logged in as {{ .User.Email }}" href="/user/logout?redirect={{ printf "/view/%s" .Page.ID }}">logout</a></span>
+  {{ else }}
+  <span class="link"><a href="/user/login?redirect={{ printf "/view/%s" .Page.ID }}">login</a></span>
+  {{ end }}
+  <span class="link"><a href="/">home</a></span>
+</div>
+{{ end }}
+
+{{ define "controls" }}
+{{ if .User }}{{ if .User.Admin }}
+<div class="controls">
+  <span class="link">{{ if eq .Mode "view" }}view{{ else }}<a href="/view/{{ .Page.ID }}">view</a>{{ end }}</span>
+  <span class="link">{{ if eq .Mode "edit" }}edit{{ else }}<a href="/edit/{{ .Page.ID }}">edit</a>{{ end }}</span>
+  <span class="link">{{ if eq .Mode "history" }}history{{ else }}<a href="/history/{{ .Page.ID }}">history</a>{{ end }}</span>
+</div>
+{{ end }}{{ end }}
+{{ end }}

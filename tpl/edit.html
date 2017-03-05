@@ -1,22 +1,14 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <link href="https://fonts.googleapis.com/css?family=Noto+Sans" rel="stylesheet">
-  <link href="/styles.css" rel="stylesheet">
-  <link href="/favicon.png" type="image/png" rel="icon" />
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Editing {{ .Page.Title }}</title>
-</head>
-
+{{ template "head" . }}
 <body>
-
-  <div class="topLink">[<a href="/">home</a>]</div>
+  {{ template "nav" . }}
 
   {{ if .Page.DoesNotExist }}
   <h1>Creating {{ .Page.Title }}</h1>
 
   {{ else }}
-  <h1>Editing {{ .Page.Title }}</h1>
+  <h1 class="title">Editing {{ .Page.Title }}</h1>
   <form class="deleteForm" action="/delete/{{ .Page.ID }}" method="POST">
     <span>delete</span>
     <input type="checkbox" name="delete" required />
@@ -27,7 +19,7 @@
 
   <form class="editForm" action="/save/{{ .Page.ID }}" method="POST">
     <textarea name="body" rows="20" cols="80">{{ printf "%s" .Page.Body }}</textarea>
-    <div>[<a href="/view/{{ .Page.ID }}">back</a>]</div>
+    {{ template "controls" . }}
     <div class="right"><input type="submit" value="save" /></div>
   </form>
   
