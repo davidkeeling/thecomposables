@@ -2,7 +2,6 @@
 <html>
 <head>
   <link href="https://fonts.googleapis.com/css?family=Noto+Sans" rel="stylesheet" />
-  <link rel="stylesheet" href="awesomplete.css" />
   <link href="/styles.css" rel="stylesheet" />
   <link href="/favicon.png" type="image/png" rel="icon" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -32,12 +31,8 @@
     {{ end }}
     </ul>
   </div>
-    {{ end }}
+  {{ end }}
 
-  <script>
-    var isAdmin = {{ .IsAdmin }};
-  </script>
-  <script src="/search.js"></script>
-  <script src="/awesomplete.js" async></script>
+  {{ template "navigationScripts" . }}
 </body>
 </html>

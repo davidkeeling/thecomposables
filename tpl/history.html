@@ -33,11 +33,9 @@
   
   {{ template "controls" . }}
 
-  <script>
-    var currentVersion = {{ .Page.Markup }};
-    var versions = {{ .Page.Versions }};
-  </script>
-  <script src="/history.js"></script>
+  {{ template "historyScripts" . }}
+
+  {{ template "navigationScripts" . }}
 
 </body>
 </html>

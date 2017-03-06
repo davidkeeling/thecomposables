@@ -98,7 +98,7 @@ func render(r *request, p *page, mode renderMode) error {
 		Page:     p,
 		User:     r.u,
 		Mode:     mode,
-		Redirect: fmt.Sprintf("/%s/%s", mode, p.ID),
+		Redirect: fmt.Sprintf("/view/%s", p.ID),
 		Pages:    pages,
 		IsAdmin:  r.u != nil && r.u.Admin,
 		IsDev:    appengine.IsDevAppServer(),
