@@ -16,7 +16,7 @@
     {{ .Page.Markup }}
   </div>
   
-  {{ template "controls" . }}
+  {{ if .IsAdmin }}{{ template "controls" . }}{{ end }}
 
   {{ template "navigationScripts" . }}
 </body>

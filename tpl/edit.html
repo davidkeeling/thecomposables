@@ -5,27 +5,28 @@
   {{ template "nav" . }}
 
   {{ if .Page.DoesNotExist }}
-  <div class="title">
-    <h1>{{ .Page.Title }}</h1>
-    <em class="annotation">creating</em>
-  </div>
-
+    <div class="title">
+      <h1>{{ .Page.Title }}</h1>
+      <em class="annotation">creating</em>
+    </div>
   {{ else }}
-  <div class="title">
-    <h1>{{ .Page.Title }}</h1>
-    <em class="annotation">editing</em>
-  </div>
-  <form class="deleteForm" action="/delete/{{ .Page.ID }}" method="POST">
-    <span>delete</span>
-    <input type="checkbox" name="delete" required />
-    <input type="submit" value="are you sure?" />
-  </form>
-
+    <div class="title">
+      <h1>{{ .Page.Title }}</h1>
+      <em class="annotation">editing</em>
+    </div>
+    <form class="deleteForm" action="/delete/{{ .Page.ID }}" method="POST">
+      <span>delete</span>
+      <input type="checkbox" name="delete" required />
+      <input type="submit" value="are you sure?" />
+    </form>
   {{ end }}
 
   <form class="editForm" action="/save/{{ .Page.ID }}" method="POST">
+
     <textarea tabindex="1" autofocus name="body" rows="20" cols="80">{{ printf "%s" .Page.Body }}</textarea>
+    
     {{ template "controls" . }}
+
     <div class="right"><input tabindex="2" type="submit" value="save" /></div>
   </form>
 

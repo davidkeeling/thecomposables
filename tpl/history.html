@@ -10,20 +10,18 @@
   </div>
 
   {{ if .Page.DoesNotExist }}
-  <em class="annotation">(No such page)</em>
+    <em class="annotation">(No such page)</em>
   {{ else }}
-
-  {{ if .Page.Versions }}
-  <select id="versionSelector">
-    <option value="">Current</option>
-    {{ range $i, $version := .Page.Versions }}
-    <option value="{{ $i }}">{{ $version.Date.Format "2006 Jan 02 3:04 PM" }}</option>
+    {{ if .Page.Versions }}
+      <select id="versionSelector">
+        <option value="">Current</option>
+        {{ range $i, $version := .Page.Versions }}
+        <option value="{{ $i }}">{{ $version.Date.Format "2006 Jan 02 3:04 PM" }}</option>
+        {{ end }}
+      </select>
+    {{ else }}
+      <em class="annotation">(No previous versions)</em>
     {{ end }}
-  </select>
-  {{ else }}
-  <em class="annotation">(No previous versions)</em>
-  {{ end }}
-  
   {{ end }}
 
   <div class="markupContainer" id="contentContainer">
