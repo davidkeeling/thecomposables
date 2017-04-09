@@ -4,7 +4,6 @@ import (
 	"html/template"
 	"net/http"
 	"regexp"
-	"sort"
 	"time"
 
 	"golang.org/x/net/context"
@@ -13,15 +12,19 @@ import (
 
 	"fmt"
 
-	"encoding/json"
-
 	"github.com/russross/blackfriday"
 	"google.golang.org/appengine"
 	"google.golang.org/appengine/datastore"
-	"google.golang.org/appengine/log"
-	"google.golang.org/appengine/memcache"
 	"google.golang.org/appengine/user"
 )
+
+// request is a container for session/request data
+type request struct {
+	c context.Context
+	w http.ResponseWriter
+	r *http.Request
+	u *user.User
+}
 
 var templates = template.Must(template.ParseFiles("tpl/edit.html", "tpl/view.html", "tpl/history.html", "tpl/index.html", "tpl/components.html"))
 var validPagePath = regexp.MustCompile("^/(edit|save|view|delete|history)/([a-zA-Z0-9',-]+)$")
@@ -41,14 +44,6 @@ type templateData struct {
 	IsDev    bool
 }
 
-// request is a container for session/request data
-type request struct {
-	c context.Context
-	w http.ResponseWriter
-	r *http.Request
-	u *user.User
-}
-
 type renderMode string
 
 const (
@@ -59,7 +54,7 @@ const (
 
 const numVersions = 10
 
-func pageHandler(fn func(*request, *page), adminOnly bool) http.HandlerFunc {
+func makePageHandler(fn func(*request, *page), adminOnly bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		matches := validPagePath.FindStringSubmatch(r.URL.Path)
 		if matches == nil {
@@ -84,10 +79,6 @@ func pageHandler(fn func(*request, *page), adminOnly bool) http.HandlerFunc {
 	}
 }
 
-func (r *request) handleError(err error) {
-	http.Error(r.w, err.Error(), http.StatusInternalServerError)
-}
-
 func render(r *request, p *page, mode renderMode) error {
 	pages, err := getPages(r.c)
 	if err != nil {
@@ -106,28 +97,28 @@ func render(r *request, p *page, mode renderMode) error {
 }
 
 func viewHandler(r *request, p *page) {
-	p.Markup = template.HTML(blackfriday.MarkdownCommon(p.Body))
+	p.Markup = getMarkup(p.Body)
 	err := render(r, p, view)
 	if err != nil {
-		r.handleError(err)
+		handleError(r, err)
 	}
 }
 
 func historyHandler(r *request, p *page) {
-	p.Markup = template.HTML(blackfriday.MarkdownCommon(p.Body))
+	p.Markup = getMarkup(p.Body)
 	for i := range p.Versions {
-		p.Versions[i].Markup = template.HTML(blackfriday.MarkdownCommon(p.Versions[i].Body))
+		p.Versions[i].Markup = getMarkup(p.Versions[i].Body)
 	}
 	err := render(r, p, history)
 	if err != nil {
-		r.handleError(err)
+		handleError(r, err)
 	}
 }
 
 func editHandler(r *request, p *page) {
 	err := render(r, p, edit)
 	if err != nil {
-		r.handleError(err)
+		handleError(r, err)
 	}
 }
 
@@ -139,7 +130,7 @@ func saveHandler(r *request, p *page) {
 	p.Body = []byte(r.r.FormValue("body"))
 	err := p.save(r.c)
 	if err != nil {
-		r.handleError(err)
+		handleError(r, err)
 		return
 	}
 	if p.DoesNotExist {
@@ -150,12 +141,12 @@ func saveHandler(r *request, p *page) {
 
 func deleteHandler(r *request, p *page) {
 	if p.DoesNotExist {
-		r.handleError(fmt.Errorf("%s does not exist; cannot delete", p.Title))
+		handleError(r, fmt.Errorf("%s does not exist; cannot delete", p.Title))
 		return
 	}
 	err := datastore.Delete(r.c, p.Key)
 	if err != nil {
-		r.handleError(err)
+		handleError(r, err)
 		return
 	}
 	clearPageCache(r.c)
@@ -210,99 +201,20 @@ func search(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/view/%s", page.ID), http.StatusFound)
 }
 
-func home(w http.ResponseWriter, r *http.Request) {
-	c := appengine.NewContext(r)
-
-	pages, err := getPages(c)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	var homepagecontent template.HTML
-	for _, p := range pages {
-		if p.Title == "Introduction" {
-			homepagecontent = template.HTML(blackfriday.MarkdownCommon(p.Body))
-		}
-	}
-
-	u := user.Current(c)
-	err = templates.ExecuteTemplate(w, "index.html", struct {
-		Pages        pageIndex
-		Introduction template.HTML
-		User         *user.User
-		IsAdmin      bool
-		Redirect     string
-	}{
-		pages,
-		homepagecontent,
-		u,
-		u != nil && u.Admin,
-		"/",
-	})
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+func handleError(r *request, err error) {
+	http.Error(r.w, err.Error(), http.StatusInternalServerError)
 }
 
-func getPages(c context.Context) (pageIndex, error) {
-	pages := pageIndex{}
-	val, err := memcache.Get(c, "pages")
-	if err == nil {
-		jErr := json.Unmarshal(val.Value, &pages)
-		if jErr == nil {
-			return pages, nil
-		}
-		log.Errorf(c, "Unmarshalling pages from memcache: %s", jErr)
-	}
-	if err != memcache.ErrCacheMiss {
-		log.Errorf(c, "Fetching pages from memcache: %s", err)
-	}
-
-	t := datastore.NewQuery("Page").Ancestor(pageParentKey(c)).Run(c)
-	for {
-		var p page
-		_, err := t.Next(&p)
-		if err == datastore.Done {
-			break
-		}
-		if err != nil {
-			log.Errorf(c, "Loading page: %s", err)
-			break
-		}
-		p.ID = titleToID(p.Title)
-		pages = append(pages, &p)
-	}
-	sort.Sort(pages)
-
-	pageJSON, err := json.Marshal(pages)
-	if err == nil {
-		mErr := memcache.Set(c, &memcache.Item{
-			Key:   "pages",
-			Value: pageJSON,
-		})
-		if mErr != nil {
-			log.Errorf(c, "Setting pages in memcache: %s", mErr)
-		}
-	}
-
-	return pages, nil
-}
-
-func clearPageCache(c context.Context) {
-	log.Infof(c, "Clearing page cache")
-	err := memcache.Delete(c, "pages")
-	if err != nil {
-		log.Errorf(c, "Resetting pages memcache: %s", err)
-	}
+func getMarkup(body []byte) template.HTML {
+	return template.HTML(blackfriday.MarkdownCommon(body))
 }
 
 func init() {
-	http.HandleFunc("/view/", pageHandler(viewHandler, false))
-	http.HandleFunc("/edit/", pageHandler(editHandler, true))
-	http.HandleFunc("/history/", pageHandler(historyHandler, true))
-	http.HandleFunc("/save/", pageHandler(saveHandler, true))
-	http.HandleFunc("/delete/", pageHandler(deleteHandler, true))
+	http.HandleFunc("/view/", makePageHandler(viewHandler, false))
+	http.HandleFunc("/edit/", makePageHandler(editHandler, true))
+	http.HandleFunc("/history/", makePageHandler(historyHandler, true))
+	http.HandleFunc("/save/", makePageHandler(saveHandler, true))
+	http.HandleFunc("/delete/", makePageHandler(deleteHandler, true))
 	http.HandleFunc("/user/", userHandler)
 	http.HandleFunc("/search", search)
 	http.HandleFunc("/", home)

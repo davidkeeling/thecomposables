@@ -1,7 +1,9 @@
 package thecomposables
 
 import (
+	"encoding/json"
 	"html/template"
+	"sort"
 	"strings"
 
 	"golang.org/x/net/context"
@@ -9,6 +11,8 @@ import (
 	"time"
 
 	"google.golang.org/appengine/datastore"
+	"google.golang.org/appengine/log"
+	"google.golang.org/appengine/memcache"
 )
 
 type page struct {
@@ -65,4 +69,73 @@ func (a pageIndex) Len() int      { return len(a) }
 func (a pageIndex) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a pageIndex) Less(i, j int) bool {
 	return strings.ToLower(a[i].Title) < strings.ToLower(a[j].Title)
+}
+
+func pagesFromMemcache(c context.Context) (pageIndex, error) {
+	val, err := memcache.Get(c, "pages")
+	if err == memcache.ErrCacheMiss {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	var pages pageIndex
+	err = json.Unmarshal(val.Value, &pages)
+	if err != nil {
+		return nil, err
+	}
+
+	return pages, nil
+}
+
+func savePagesInMemcache(c context.Context, pages pageIndex) error {
+	pageJSON, err := json.Marshal(pages)
+	if err != nil {
+		return err
+	}
+
+	return memcache.Set(c, &memcache.Item{
+		Key:   "pages",
+		Value: pageJSON,
+	})
+}
+
+func pagesFromDatastore(c context.Context) (pageIndex, error) {
+	var pages pageIndex
+	t := datastore.NewQuery("Page").Ancestor(pageParentKey(c)).Run(c)
+	for {
+		var p page
+		_, err := t.Next(&p)
+		if err == datastore.Done {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		p.ID = titleToID(p.Title)
+		pages = append(pages, &p)
+	}
+	sort.Sort(pages)
+	return pages, nil
+}
+
+func getPages(c context.Context) (pageIndex, error) {
+	pages, err := pagesFromMemcache(c)
+	if pages != nil {
+		return pages, nil
+	}
+	if err != nil {
+		log.Errorf(c, "Fetching pages from memcache: %s")
+	}
+
+	return pagesFromDatastore(c)
+}
+
+func clearPageCache(c context.Context) {
+	log.Infof(c, "Clearing page cache")
+	err := memcache.Delete(c, "pages")
+	if err != nil {
+		log.Errorf(c, "Resetting pages memcache: %s", err)
+	}
 }
