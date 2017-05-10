@@ -128,6 +128,7 @@ func saveHandler(r *request, p *page) {
 		p.Versions = p.Versions[:numVersions]
 	}
 	p.Body = []byte(r.r.FormValue("body"))
+	p.Categories = r.r.FormValue("categories")
 	err := p.save(r.c)
 	if err != nil {
 		handleError(r, err)

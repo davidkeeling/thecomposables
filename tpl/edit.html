@@ -24,6 +24,8 @@
   <form class="editForm" action="/save/{{ .Page.ID }}" method="POST">
 
     <textarea tabindex="1" autofocus name="body" rows="20" cols="80">{{ printf "%s" .Page.Body }}</textarea>
+
+    <input type="text" name="categories" value="{{ .Page.Categories }}" />
     
     {{ template "controls" . }}
 

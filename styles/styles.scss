@@ -20,6 +20,38 @@ form textarea {
   line-height: 1.5;
 }
 
+.categories {
+  font-size: smaller;
+  text-align: center;
+  h2 {
+    padding: 1em 0;
+    border-bottom: 1px solid #a0afba;
+    border-top: 1px solid #a0afba;
+  }
+  .cat {
+    display: inline-block;
+    vertical-align: top;
+    text-align: left;
+    width: 300px;
+    margin: 1em;
+    padding: 1em;
+    h3 {
+      margin-bottom: 0;
+    }
+    ul {
+      list-style: none;
+      margin-top: 0;
+      padding: 0;
+      font-size: 90%;
+    }
+  }
+}
+
+.intro {
+  min-height: 10em;
+  margin-bottom: 15em;
+}
+
 .editForm {
 
   input[type='submit'] {

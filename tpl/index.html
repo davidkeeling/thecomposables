@@ -14,25 +14,26 @@
   <h1 class="title">The Composables</h1>
 
   {{ if .Introduction }} 
-  <div class="markupContainer">
+  <div class="intro">
     {{ .Introduction }} 
   </div>
   {{ end }}
 
-  {{ if .Pages }}
-  <div class="topics">
-
+  <div class="categories">
     <h2>Topics</h2>
-
-    <ul>
-    {{ range .Pages }}
-      <li>
-        <a href="/view/{{ .ID }}">{{ .Title }}</a>
-      </li>
+    {{ range $category, $pages := .Categories }}
+    <div class="cat">
+      <h3>{{ $category }}</h3>
+      <ul>
+      {{ range $pages }}
+        <li>
+          <a href="/view/{{ .ID }}">{{ .Title }}</a>
+        </li>
+      {{ end }}
+      </ul>
+    </div>
     {{ end }}
-    </ul>
   </div>
-  {{ end }}
 
   {{ template "navigationScripts" . }}
 </body>

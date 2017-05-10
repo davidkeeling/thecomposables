@@ -22,6 +22,7 @@ type page struct {
 	Body         []byte        `datastore:",noindex"`
 	Markup       template.HTML `datastore:"-"`
 	Versions     []version
+	Categories   string
 	DoesNotExist bool `datastore:"-"`
 }
 
@@ -138,4 +139,19 @@ func clearPageCache(c context.Context) {
 	if err != nil {
 		log.Errorf(c, "Resetting pages memcache: %s", err)
 	}
+}
+
+func getCategories(pages pageIndex) map[string]pageIndex {
+	categories := make(map[string]pageIndex)
+	for _, page := range pages {
+		if page.Categories == "" {
+			categories["uncategorized"] = append(categories["uncategorized"], page)
+			continue
+		}
+		cats := strings.Split(page.Categories, " ")
+		for _, cat := range cats {
+			categories[cat] = append(categories[cat], page)
+		}
+	}
+	return categories
 }
